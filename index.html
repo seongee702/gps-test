@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>GPS 도보 테스터 11/18.10</title>
+    <title>GPS 도보 테스터 11/18.11</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/kalmanjs@1.1.0/dist/kalman.min.js"></script>
     <style>
@@ -51,7 +51,7 @@
 
     <div class="w-full max-w-lg mx-auto flex flex-col h-full">
         <header class="text-center py-2">
-            <h1 class="text-2xl font-bold text-cyan-400">GPS 도보 테스터 11/18.10</h1>
+            <h1 class="text-2xl font-bold text-cyan-400">GPS 도보 테스터 11/18.11</h1>
             <p id="app-status" class="text-gray-400 text-sm">GPS 신호를 기다리는 중...</p>
         </header>
 
@@ -382,7 +382,7 @@
             let lastFilteredLon = null;
             let lastGpsTime = 0;
             const MAX_SPEED = 3.5; // m/s (약 12.6 km/h - 도보/달리기 한계)
-            const MIN_MOVE_DISTANCE = 1.0; // m (1m 미만 변화는 노이즈로 무시)
+            const MIN_MOVE_DISTANCE = 1.5; // m (1m 미만 변화는 노이즈로 무시)
 
             // 🌍 핵심 수정: GPS 절대좌표(위도/경도) 기반 거리 계산으로 변경
             function handleGpsSuccess(position) {
