@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>GPS 도보 테스터 11/17</title>
+    <title>GPS 도보 테스터 11/18</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/kalmanjs@1.1.0/dist/kalman.min.js"></script>
     <style>
@@ -354,8 +354,8 @@
                 }
                 ctx.font = `${12 / camera.zoom}px Arial`; ctx.fillStyle = "#FBBF24"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
                 ctx.fillText("★", algo.best_known_pos.x, algo.best_known_pos.y);
-                ctx.fillStyle = "#4299E1"; ctx.beginPath(); ctx.arc(algo.waypoint.x, algo.waypoint.y, 0.2, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = "#48BB78"; ctx.beginPath(); ctx.arc(algo.pos.x, algo.pos.y, 0.2, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "#4299E1"; ctx.beginPath(); ctx.arc(algo.waypoint.x, algo.waypoint.y, 0.3, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "#48BB78"; ctx.beginPath(); ctx.arc(algo.pos.x, algo.pos.y, 0.3, 0, Math.PI * 2); ctx.fill();
                 ctx.restore();
                 requestAnimationFrame(draw);
             }
