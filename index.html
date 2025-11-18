@@ -404,7 +404,7 @@
                 }
         
         // ✅ 2단계: 버퍼에 추가
-                originBuffer.push({ lat: currentLat, lon: currentLon });
+                originBuffer.push({ lat: rawLat, lon: rawLon });
                 appStatus.textContent = `안정적인 원점 설정 중... (${originBuffer.length}/${ORIGIN_SAMPLES_NEEDED})`;
         
         // 3단계: 버퍼가 다 찼는지 확인
@@ -495,6 +495,7 @@
                 
                 // 속도 직접 계산 (Haversine 거리 기반)
                 let estimatedSpeed = 0;
+                let smoothedDistance = 0; // ⬅️ [추가] 스무딩된 이동 거리를 저장할 변수
                 if (lastFilteredLat !== null && lastFilteredLon !== null && lastGpsTime > 0) {
                     const timeDelta = (currentTime - lastGpsTime) / 1000;
                     const distance = haversineDistance(lastFilteredLat, lastFilteredLon, currentLat, currentLon);
@@ -526,7 +527,7 @@
                 // 📱 디버그 패널 업데이트
                 debugAccuracy.textContent = `정확도: ±${accuracy.toFixed(1)}m`;
                 debugStatus.textContent = `상태: ✓ 수용됨`;
-                debugDistance.textContent = `이동: ${(lastFilteredLat && lastFilteredLon ? haversineDistance(lastFilteredLat, lastFilteredLon, currentLat, currentLon).toFixed(2) : 0)}m`;
+                debugDistance.textContent = `이동: ${smoothedDistance.toFixed(2)}m`; // ⬅️ [수정] 미리 계산한 변수 사용
                 debugSpeed.textContent = `속도: ${estimatedSpeed.toFixed(2)} m/s`;
                 debugFilter.textContent = `필터: ✓ 통과`;
                 debugFilter.className = 'truncate text-green-400';
