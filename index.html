@@ -376,7 +376,7 @@
             let lastFilteredLon = null;
             let lastGpsTime = 0;
             const MAX_SPEED = 3.5; // m/s (약 12.6 km/h - 도보/달리기 한계)
-            const MIN_MOVE_DISTANCE = 1.0; // m (1m 미만 변화는 노이즈로 무시)
+            const MIN_MOVE_DISTANCE = 2.0; // m (1m 미만 변화는 노이즈로 무시)
 
             // 🌍 핵심 수정: GPS 절대좌표(위도/경도) 기반 거리 계산으로 변경
             /*
