@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>GPS 도보 테스터 11/18.5</title>
+    <title>GPS 도보 테스터 11/18.6</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/kalmanjs@1.1.0/dist/kalman.min.js"></script>
     <style>
@@ -51,7 +51,7 @@
 
     <div class="w-full max-w-lg mx-auto flex flex-col h-full">
         <header class="text-center py-2">
-            <h1 class="text-2xl font-bold text-cyan-400">GPS 도보 테스터 11/18.5</h1>
+            <h1 class="text-2xl font-bold text-cyan-400">GPS 도보 테스터 11/18.6</h1>
             <p id="app-status" class="text-gray-400 text-sm">GPS 신호를 기다리는 중...</p>
         </header>
 
@@ -709,7 +709,7 @@
                     if (accuracy > 30) {
                         appStatus.textContent = `신호가 약합니다 (±${accuracy.toFixed(1)}m). 안정적인 신호 검색 중...`;
                         return;
-            S       }
+                   }
                     
                     // [버그 수정] rawLat, rawLon 사용
                     originBuffer.push({ lat: rawLat, lon: rawLon }); 
@@ -790,14 +790,14 @@
                 }
                 
                 // 다음 계산을 위해 스무딩된 값 저장
-A                lastFilteredLat = currentLat;
+                lastFilteredLat = currentLat;
                 lastFilteredLon = currentLon;
                 // lastGpsTime은 맨 위에서 갱신하므로 여기서는 제거 (원래 버그)
                 
                 // UI 상태 정보 즉시 업데이트
                 stateDisplay.textContent = algo.state; 
                 stuckDisplay.textContent = algo.stuck_counter;
-I               currentMeterDisplay.textContent = `(${currentPosMeters.x.toFixed(1)}, ${currentPosMeters.y.toFixed(1)})m`;
+                currentMeterDisplay.textContent = `(${currentPosMeters.x.toFixed(1)}, ${currentPosMeters.y.toFixed(1)})m`;
                 const dist = Math.hypot(algo.waypoint.x - currentPosMeters.x, algo.waypoint.y - currentPosMeters.y);
                 distanceDisplay.textContent = `${dist.toFixed(1)} m`;
                 totalDistanceDisplay.textContent = `${algo.getTotalDistance().toFixed(1)} m`;
@@ -807,7 +807,7 @@ I               currentMeterDisplay.textContent = `(${currentPosMeters.x.
                 
                 // 📱 디버그 패널 업데이트
                 debugAccuracy.textContent = `정확도: ±${accuracy.toFixed(1)}m`;
-s              debugStatus.textContent = `상태: ✓ 수용됨 (이동)`;
+                debugStatus.textContent = `상태: ✓ 수용됨 (이동)`;
                 debugDistance.textContent = `이동: ${smoothedDistance.toFixed(2)}m`;
                 debugSpeed.textContent = `속도: ${estimatedSpeed.toFixed(2)} m/s`;
                 debugFilter.textContent = `필터: ✓ 통과 (이동 중)`;
@@ -820,7 +820,7 @@ s              debugStatus.textContent = `상태: ✓ 수용됨 (이동)`
                 // 목표 도착 체크
                 if (dist < PARAMS.ARRIVAL_DISTANCE && !isWaitingForRssi) {
                     isWaitingForRssi = true; 
-s                  controlSection.style.display = 'block';
+                    controlSection.style.display = 'block';
                     appStatus.textContent = "목표 도착! RSSI를 입력하세요."; 
                     rssiInput.focus();
                 }
