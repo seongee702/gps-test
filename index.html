@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>GPS 도보 테스터 11/18.7</title>
+    <title>GPS 도보 테스터 11/17</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/kalmanjs@1.1.0/dist/kalman.min.js"></script>
     <style>
@@ -51,7 +51,7 @@
 
     <div class="w-full max-w-lg mx-auto flex flex-col h-full">
         <header class="text-center py-2">
-            <h1 class="text-2xl font-bold text-cyan-400">GPS 도보 테스터 11/18.7</h1>
+            <h1 class="text-2xl font-bold text-cyan-400">GPS 도보 테스터 11/17</h1>
             <p id="app-status" class="text-gray-400 text-sm">GPS 신호를 기다리는 중...</p>
         </header>
 
@@ -168,7 +168,7 @@
             let originLat, originLon, algo;
             let isWaitingForRssi = false;
             const EARTH_RADIUS = 6378137.0;
-            let camera = { x: 0, y: 0, zoom: 15 }; // 수정
+            let camera = { x: 0, y: 0, zoom: 25 };
 
             let originBuffer = []; // [lat, lon] 쌍을 저장할 배열
             const ORIGIN_SAMPLES_NEEDED = 10; // 안정화에 필요한 샘플 수
@@ -354,8 +354,8 @@
                 }
                 ctx.font = `${12 / camera.zoom}px Arial`; ctx.fillStyle = "#FBBF24"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
                 ctx.fillText("★", algo.best_known_pos.x, algo.best_known_pos.y);
-                ctx.fillStyle = "#4299E1"; ctx.beginPath(); ctx.arc(algo.waypoint.x, algo.waypoint.y, 0.3, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = "#48BB78"; ctx.beginPath(); ctx.arc(algo.pos.x, algo.pos.y, 0.3, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "#4299E1"; ctx.beginPath(); ctx.arc(algo.waypoint.x, algo.waypoint.y, 0.4, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "#48BB78"; ctx.beginPath(); ctx.arc(algo.pos.x, algo.pos.y, 0.4, 0, Math.PI * 2); ctx.fill();
                 ctx.restore();
                 requestAnimationFrame(draw);
             }
@@ -376,145 +376,179 @@
             let lastFilteredLon = null;
             let lastGpsTime = 0;
             const MAX_SPEED = 3.5; // m/s (약 12.6 km/h - 도보/달리기 한계)
-            const MIN_MOVE_DISTANCE = 3.0; // m (1m 미만 변화는 노이즈로 무시)
+            const MIN_MOVE_DISTANCE = 1.0; // m (1m 미만 변화는 노이즈로 무시)
 
+            // 🌍 핵심 수정: GPS 절대좌표(위도/경도) 기반 거리 계산으로 변경
+            function handleGpsSuccess(position) {
+                // ⏱ 1단계: GPS 업데이트 주기 제한 (500ms마다만)
+                const currentTime = Date.now();
+                if (currentTime - lastGpsUpdateTime < GPS_UPDATE_INTERVAL) {
+                    return; // 아직 시간이 안 되었으므로 무시
+                }
+                lastGpsUpdateTime = currentTime;
+                
+                //const accuracy = position.coords.accuracy;
+               // const currentLat = position.coords.latitude;
+                const currentLon = position.coords.longitude;
+                const rawLat = position.coords.latitude; // ⬅️ 이렇게 변경
+                const rawLon = position.coords.longitude; // ⬅️ 이렇게 변경
+                
+                // 원점 설정 시에는 정확도 필터링하지 않음
+            if (!originLat) {
+        // 원점이 아직 설정되지 않았다면 (안정화 진행 중
+        // ⭐ 1단계: 정확도 필터 (30m 기준)
+                if (accuracy > 30) {
+                    appStatus.textContent = `신호가 약합니다 (±${accuracy.toFixed(1)}m). 안정적인 신호 검색 중...`;
+                    return; // 정확도가 나쁜 신호는 버퍼에 추가하지 않음
+                }
+        
+        // ✅ 2단계: 버퍼에 추가
+                originBuffer.push({ lat: rawLat, lon: rawLon });
+                appStatus.textContent = `안정적인 원점 설정 중... (${originBuffer.length}/${ORIGIN_SAMPLES_NEEDED})`;
+        
+        // 3단계: 버퍼가 다 찼는지 확인
+            if (originBuffer.length >= ORIGIN_SAMPLES_NEEDED) {
+                // 4단계: 평균 계산
+                let avgLat = 0, avgLon = 0;
+                for (const pos of originBuffer) {
+                    avgLat += pos.lat;
+                    avgLon += pos.lon;
+                }
+                avgLat /= originBuffer.length;
+                avgLon /= originBuffer.length;
             
-            // 🌍 [수정됨] GPS 절대좌표 및 '장치 속도계' 기반 필터링
-            function handleGpsSuccess(position) {
-                // ⏱ 1단계: GPS 업데이트 주기 제한 (500ms마다만)
-                const currentTime = Date.now();
-                if (currentTime - lastGpsUpdateTime < GPS_UPDATE_INTERVAL) {
-                    return; // 아직 시간이 안 되었으므로 무시
-                }
-                lastGpsUpdateTime = currentTime;
-                
-                const accuracy = position.coords.accuracy;
-                const rawLat = position.coords.latitude;
-                const rawLon = position.coords.longitude;
-                // 🔥 [핵심] GPS 장치가 직접 측정한 속도 (m/s)
-                const deviceSpeed = position.coords.speed; 
-                
-                // --- 1. 원점 설정 로직 (수정됨) ---
-                if (!originLat) {
-                    if (accuracy > 30) {
-                        appStatus.textContent = `신호가 약합니다 (±${accuracy.toFixed(1)}m). 안정적인 신호 검색 중...`;
-                        return;
-                   }
-                    
-                    // [버그 수정] rawLat, rawLon 사용
-                    originBuffer.push({ lat: rawLat, lon: rawLon }); 
-                    appStatus.textContent = `안정적인 원점 설정 중... (${originBuffer.length}/${ORIGIN_SAMPLES_NEEDED})`;
-                    
-                    if (originBuffer.length >= ORIGIN_SAMPLES_NEEDED) {
-                        let avgLat = 0, avgLon = 0;
-                        for (const pos of originBuffer) {
-                            avgLat += pos.lat;
-                            avgLon += pos.lon;
-                        }
-                        originLat = avgLat / originBuffer.length;
-                        originLon = avgLon / originBuffer.length;
-                        appStatus.textContent = "원점 설정 완료. 테스트를 시작하세요.";
-                        startButton.style.display = 'block';
-                        console.log(`📍 안정화된 원점 설정 완료 (신호 ${ORIGIN_SAMPLES_NEEDED}개 평균)`);
+            // 5단계: 계산된 평균값을 원점으로 설정!
+                originLat = avgLat;
+                originLon = avgLon;
+            
+            // 6단계: 상태 업데이트 및 시작 버튼 활성화
+                appStatus.textContent = "원점 설정 완료. 테스트를 시작하세요.";
+                startButton.style.display = 'block';
+                console.log(`📍 안정화된 원점 설정 완료 (신호 ${ORIGIN_SAMPLES_NEEDED}개 평균)`);
+                }
+            return; // 원점이 설정되었거나(방금) 아직 안되었으므로(수집중) 알고리즘 로직은 실행하지 않음
+            }
+                
+                // ⭐ 2단계: 정확도 필터 (30m 기준 - 필드 환경 최적화)
+                if (accuracy > 30) {
+                    gpsAccuracyStats.rejectedCount++;
+                    debugAccuracy.textContent = `정확도: ±${accuracy.toFixed(1)}m ⚠️`;
+                    debugStatus.textContent = `상태: ✗ 거부됨`;
+                    debugFilter.textContent = `필터: 정확도 낮음`;
+                    debugFilter.className = 'truncate text-red-400';
+                    debugCount.textContent = `수용: ${gpsAccuracyStats.acceptedCount} / 거부: ${gpsAccuracyStats.rejectedCount}`;
+                    return;
+                }
+                
+                gpsAccuracyStats.acceptedCount++;
+                gpsAccuracyStats.averageAccuracy = gpsAccuracyStats.averageAccuracy * 0.8 + accuracy * 0.2;
+                
+                if (!algo) return;
+                
+                // 🌍 3단계: Haversine 거리로 급격한 움직임 필터링 (절대좌표 기반)
+                if (lastFilteredLat !== null && lastFilteredLon !== null && lastGpsTime > 0) {
+                    const realTimeDelta = (currentTime - lastGpsTime) / 1000;
+                   // const distance = haversineDistance(lastFilteredLat, lastFilteredLon, currentLat, currentLon);
+                    const distance = haversineDistance(lastFilteredLat, lastFilteredLon, rawLat, rawLon); // ⬅️ 이렇게 변경 (원시 값과 비교)
+                    const estimatedSpeed = realTimeDelta > 0 ? distance / realTimeDelta : 0;
+                    
+                    // 속도가 MAX_SPEED를 초과하면 부정확한 신호로 판단
+                    if (estimatedSpeed > MAX_SPEED) {
+                        // 📱 디버그: 속도 이상 신호 정보
+                        debugSpeed.textContent = `속도: ${estimatedSpeed.toFixed(2)} m/s ⚠️`;
+                        debugFilter.textContent = `필터: 속도 이상`;
+                        debugFilter.className = 'truncate text-red-400';
+                        return;
+                    }
+                    
+                    // 🔥 4단계: [수정] 정지 상태 필터 (속도 기반)
+                    // PARAMS.STATIONARY_SPEED_THRESHOLD (0.5 m/s) 미만은 노이즈로 간주
+                    if (estimatedSpeed < PARAMS.STATIONARY_SPEED_THRESHOLD) { 
+                        // 📱 디버그: 정지 상태 정보
+                        debugDistance.textContent = `이동: ${distance.toFixed(2)}m (정지)`;
+                        debugSpeed.textContent = `속도: ${estimatedSpeed.toFixed(2)} m/s (정지)`;
+                        debugFilter.textContent = `필터: 정지 상태 (Jitter)`;
+                        debugFilter.className = 'truncate text-yellow-400';
+
+                        // [중요] 정지 상태일 때는 EMA도, 위치 업데이트도 하지 않고
+                        // 이전 위치를 그대로 유지합니다.
+                        return; 
                     }
-                    return;
-                }
-                
-                // --- 2. 정확도 필터 ---
-                if (accuracy > 30) {
-                    gpsAccuracyStats.rejectedCount++;
-                    debugAccuracy.textContent = `정확도: ±${accuracy.toFixed(1)}m ⚠️`;
-                    debugStatus.textContent = `상태: ✗ 거부됨`;
-                    debugFilter.textContent = `필터: 정확도 낮음`;
-                    debugFilter.className = 'truncate text-red-400';
-                    debugCount.textContent = `수용: ${gpsAccuracyStats.acceptedCount} / 거부: ${gpsAccuracyStats.rejectedCount}`;
-
-                    return;
-                }
-                
-                gpsAccuracyStats.acceptedCount++;
-                gpsAccuracyStats.averageAccuracy = gpsAccuracyStats.averageAccuracy * 0.8 + accuracy * 0.2;
-                
-                if (!algo) return;
-
-                // --- 3. [핵심] 정지 상태 감지 (Dead Zone) ---
-                // 장치 속도(deviceSpeed)가 null일 수 있으므로 (deviceSpeed || 0) 사용
-                if ((deviceSpeed || 0) < PARAMS.STATIONARY_SPEED_THRESHOLD) {
-                    // 📱 디버그: 정지 상태 정보
-                    debugAccuracy.textContent = `정확도: ±${accuracy.toFixed(1)}m`;
-                    debugStatus.textContent = `상태: ✓ 수용됨 (정지)`;
-                    debugSpeed.textContent = `속도: ${(deviceSpeed || 0).toFixed(2)} m/s (정지)`;
-                    debugFilter.textContent = `필터: 정지 상태 (Device)`;
-                    debugFilter.className = 'truncate text-yellow-400';
-                    debugCount.textContent = `수용: ${gpsAccuracyStats.acceptedCount} / 거부: ${gpsAccuracyStats.rejectedCount}`;
-
-                    // [중요] 위치가 튀어도 EMA, 알고리즘 업데이트를 모두 건너뛰어
-                    // 캔버스 상의 위치(algo.pos)를 완벽하게 고정시킴
-                    return;
-                }
-
-                // --- 4. [이동 상태] EMA 스무딩 적용 ---
-                // (기존의 수동 속도/거리 필터는 deviceSpeed를 신뢰하므로 제거)
-
-                const SMOOTHING_FACTOR = 0.6; // (0.0 ~ 1.0)
-                let currentLat, currentLon;
-                
-                if (lastFilteredLat === null || lastFilteredLon === null) {
-                    currentLat = rawLat;
-                    currentLon = rawLon;
-                } else {
-                    currentLat = (rawLat * SMOOTHING_FACTOR) + (lastFilteredLat * (1.0 - SMOOTHING_FACTOR));
-                    currentLon = (rawLon * SMOOTHING_FACTOR) + (lastFilteredLon * (1.0 - SMOOTHING_FACTOR));
-                }
-                
-                // --- 5. 위치 및 UI 업데이트 ---
-                const currentPosMeters = latlonToMeters(currentLat, currentLon);
-                algo.updatePosition(currentPosMeters);
-                
-                // 속도/거리 계산 (디버그 표시용)
-                let estimatedSpeed = deviceSpeed || 0; // UI에는 장치 속도 표시
-                let smoothedDistance = 0; 
-                if (lastFilteredLat !== null && lastFilteredLon !== null) {
-                    // 디버그 패널에는 '스무딩된' 이동 거리 표시
-                    smoothedDistance = haversineDistance(lastFilteredLat, lastFilteredLon, currentLat, currentLon);
-                }
-                
-                // 다음 계산을 위해 스무딩된 값 저장
-                lastFilteredLat = currentLat;
-                lastFilteredLon = currentLon;
-                // lastGpsTime은 맨 위에서 갱신하므로 여기서는 제거 (원래 버그)
-                
-                // UI 상태 정보 즉시 업데이트
-                stateDisplay.textContent = algo.state; 
-                stuckDisplay.textContent = algo.stuck_counter;
-                currentMeterDisplay.textContent = `(${currentPosMeters.x.toFixed(1)}, ${currentPosMeters.y.toFixed(1)})m`;
-                const dist = Math.hypot(algo.waypoint.x - currentPosMeters.x, algo.waypoint.y - currentPosMeters.y);
-                distanceDisplay.textContent = `${dist.toFixed(1)} m`;
-                totalDistanceDisplay.textContent = `${algo.getTotalDistance().toFixed(1)} m`;
-                bestSignalDisplay.textContent = `${algo.best_known_signal.toFixed(1)} dBm`;
-                velocityDisplay.textContent = `${estimatedSpeed.toFixed(2)} m/s`;
-                filterStatus.textContent = `정상 (±${gpsAccuracyStats.averageAccuracy.toFixed(1)}m)`;
-                
-                // 📱 디버그 패널 업데이트
-                debugAccuracy.textContent = `정확도: ±${accuracy.toFixed(1)}m`;
-                debugStatus.textContent = `상태: ✓ 수용됨 (이동)`;
-                debugDistance.textContent = `이동: ${smoothedDistance.toFixed(2)}m`;
-                debugSpeed.textContent = `속도: ${estimatedSpeed.toFixed(2)} m/s`;
-                debugFilter.textContent = `필터: ✓ 통과 (이동 중)`;
-                debugFilter.className = 'truncate text-green-400';
-                debugCount.textContent = `수용: ${gpsAccuracyStats.acceptedCount} / 거부: ${gpsAccuracyStats.rejectedCount}`;
-                
-                // 방향 업데이트
-                updateDirection();
-                
-                // 목표 도착 체크
-                if (dist < PARAMS.ARRIVAL_DISTANCE && !isWaitingForRssi) {
-                    isWaitingForRssi = true; 
-                    controlSection.style.display = 'block';
-                    appStatus.textContent = "목표 도착! RSSI를 입력하세요."; 
-                    rssiInput.focus();
-                }
-            }
+                }
+                
+                // 🔥 [추가] 5단계: EMA(지수 이동 평균) 스무딩 적용
+                // (0.0 ~ 1.0 사이 값, 1.0에 가까울수록 새 값을, 0.0에 가까울수록 이전 값을 신뢰)
+                // 이 값을 조절하며 가장 부드러운 움직임을 찾아보세요. (예: 0.6)
+                const SMOOTHING_FACTOR = 0.6; 
+        
+                let currentLat, currentLon; // ⬅️ [추가] 최종 사용할 위치 변수 선언
+        
+                if (lastFilteredLat === null || lastFilteredLon === null) {
+                    // 최초 1회는 원시 값을 그대로 사용
+                    currentLat = rawLat;
+                    currentLon = rawLon;
+                } else {
+                    // (새로운 원시 값 * 가중치) + (이전 스무딩 값 * (1 - 가중치))
+                    currentLat = (rawLat * SMOOTHING_FACTOR) + (lastFilteredLat * (1.0 - SMOOTHING_FACTOR));
+                    currentLon = (rawLon * SMOOTHING_FACTOR) + (lastFilteredLon * (1.0 - SMOOTHING_FACTOR));
+                }
+                
+                // 위치 업데이트
+                //const currentPosMeters = latlonToMeters(currentLat, currentLon);
+                const currentPosMeters = latlonToMeters(currentLat, currentLon); // ⬅️ 이 줄이 이제 스무딩된 값을 사용하게 됩니다.
+                algo.updatePosition(currentPosMeters);
+                
+                // 속도 직접 계산 (Haversine 거리 기반)
+                let estimatedSpeed = 0;
+                let smoothedDistance = 0; // ⬅️ [추가] 스무딩된 이동 거리를 저장할 변수
+                if (lastFilteredLat !== null && lastFilteredLon !== null && lastGpsTime > 0) {
+                    const timeDelta = (currentTime - lastGpsTime) / 1000;
+                    const distance = haversineDistance(lastFilteredLat, lastFilteredLon, currentLat, currentLon);
+                    if (timeDelta > 0) {
+                        estimatedSpeed = smoothedDistance / timeDelta; // ⬅️ [수정]
+                    }
+                }
+                
+                // 다음 계산을 위해 현재 값(절대좌표)을 이전 값으로 저장
+                //lastFilteredLat = currentLat;
+               // lastFilteredLon = currentLon;
+                lastFilteredLat = currentLat; // ⬅️ 스무딩된 값으로 저장
+                lastFilteredLon = currentLon; // ⬅️ 스무딩된 값으로 저장
+                lastGpsTime = currentTime;
+                
+                // UI 상태 정보 즉시 업데이트
+                stateDisplay.textContent = algo.state; 
+                stuckDisplay.textContent = algo.stuck_counter;
+                currentMeterDisplay.textContent = `(${currentPosMeters.x.toFixed(1)}, ${currentPosMeters.y.toFixed(1)})m`;
+                const dist = Math.hypot(algo.waypoint.x - currentPosMeters.x, algo.waypoint.y - currentPosMeters.y);
+                distanceDisplay.textContent = `${dist.toFixed(1)} m`;
+                totalDistanceDisplay.textContent = `${algo.getTotalDistance().toFixed(1)} m`;
+                bestSignalDisplay.textContent = `${algo.best_known_signal.toFixed(1)} dBm`;
+                
+                // 속도 표시 (칼만 필터 제거)
+                velocityDisplay.textContent = `${estimatedSpeed.toFixed(2)} m/s`;
+                filterStatus.textContent = `정상 (±${gpsAccuracyStats.averageAccuracy.toFixed(1)}m)`;
+                
+                // 📱 디버그 패널 업데이트
+                debugAccuracy.textContent = `정확도: ±${accuracy.toFixed(1)}m`;
+                debugStatus.textContent = `상태: ✓ 수용됨`;
+                debugDistance.textContent = `이동: ${smoothedDistance.toFixed(2)}m`; // ⬅️ [수정] 미리 계산한 변수 사용
+                debugSpeed.textContent = `속도: ${estimatedSpeed.toFixed(2)} m/s`;
+                debugFilter.textContent = `필터: ✓ 통과`;
+                debugFilter.className = 'truncate text-green-400';
+                debugCount.textContent = `수용: ${gpsAccuracyStats.acceptedCount} / 거부: ${gpsAccuracyStats.rejectedCount}`;
+                
+                // 방향 업데이트
+                updateDirection();
+                
+                // 목표 도착 체크
+                if (dist < PARAMS.ARRIVAL_DISTANCE && !isWaitingForRssi) {
+                    isWaitingForRssi = true; 
+                    controlSection.style.display = 'block';
+                    appStatus.textContent = "목표 도착! RSSI를 입력하세요."; 
+                    rssiInput.focus();
+                }
+            }
 
             // 휴대폰 방향 감지
             function handleOrientationChange(event) {
@@ -662,3 +696,4 @@
     </script>
 </body>
 </html>
+
