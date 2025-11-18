@@ -388,8 +388,11 @@
                 lastGpsUpdateTime = currentTime;
                 
                 const accuracy = position.coords.accuracy;
-                const currentLat = position.coords.latitude;
-                const currentLon = position.coords.longitude;
+                
+                //const currentLat = position.coords.latitude;
+                //const currentLon = position.coords.longitude;
+                const rawLat = position.coords.latitude; // ⬅️ 이렇게 변경
+                const rawLon = position.coords.longitude; // ⬅️ 이렇게 변경
                 
                 // 원점 설정 시에는 정확도 필터링하지 않음
             if (!originLat) {
@@ -446,7 +449,8 @@
                 // 🌍 3단계: Haversine 거리로 급격한 움직임 필터링 (절대좌표 기반)
                 if (lastFilteredLat !== null && lastFilteredLon !== null && lastGpsTime > 0) {
                     const realTimeDelta = (currentTime - lastGpsTime) / 1000;
-                    const distance = haversineDistance(lastFilteredLat, lastFilteredLon, currentLat, currentLon);
+                    //const distance = haversineDistance(lastFilteredLat, lastFilteredLon, currentLat, currentLon);
+                    const distance = haversineDistance(lastFilteredLat, lastFilteredLon, rawLat, rawLon); // ⬅️ 이렇게 변경 (원시 값과 비교)
                     const estimatedSpeed = realTimeDelta > 0 ? distance / realTimeDelta : 0;
                     
                     // 속도가 MAX_SPEED를 초과하면 부정확한 신호로 판단
@@ -467,8 +471,25 @@
                         return;
                     }
                 }
+                // 🔥 [추가] 5단계: EMA(지수 이동 평균) 스무딩 적용
+                // (0.0 ~ 1.0 사이 값, 1.0에 가까울수록 새 값을, 0.0에 가까울수록 이전 값을 신뢰)
+                // 이 값을 조절하며 가장 부드러운 움직임을 찾아보세요. (예: 0.6)
+                const SMOOTHING_FACTOR = 0.6; 
+        
+                let currentLat, currentLon; // ⬅️ [추가] 최종 사용할 위치 변수 선언
+        
+                if (lastFilteredLat === null || lastFilteredLon === null) {
+                    // 최초 1회는 원시 값을 그대로 사용
+                    currentLat = rawLat;
+                    currentLon = rawLon;
+                } else {
+                    // (새로운 원시 값 * 가중치) + (이전 스무딩 값 * (1 - 가중치))
+                    currentLat = (rawLat * SMOOTHING_FACTOR) + (lastFilteredLat * (1.0 - SMOOTHING_FACTOR));
+                    currentLon = (rawLon * SMOOTHING_FACTOR) + (lastFilteredLon * (1.0 - SMOOTHING_FACTOR));
+                }
                 
                 // 위치 업데이트
+                //const currentPosMeters = latlonToMeters(currentLat, currentLon);
                 const currentPosMeters = latlonToMeters(currentLat, currentLon);
                 algo.updatePosition(currentPosMeters);
                 
@@ -483,8 +504,10 @@
                 }
                 
                 // 다음 계산을 위해 현재 값(절대좌표)을 이전 값으로 저장
-                lastFilteredLat = currentLat;
-                lastFilteredLon = currentLon;
+                //lastFilteredLat = currentLat;
+                //lastFilteredLon = currentLon;
+                lastFilteredLat = currentLat; // ⬅️ 스무딩된 값으로 저장
+                lastFilteredLon = currentLon; // ⬅️ 스무딩된 값으로 저장
                 lastGpsTime = currentTime;
                 
                 // UI 상태 정보 즉시 업데이트
